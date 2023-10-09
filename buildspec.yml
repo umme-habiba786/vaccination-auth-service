@@ -1,0 +1,62 @@
+version: 0.2
+
+env:
+  shell: "/bin/sh"
+  variables:
+    IMAGE_TAG: auth-latest
+    IMAGE_REPO_NAME: vaccination-system-images
+  parameter-store:
+    ECR_REGISTRY_URI: ecr-registry-uri
+    AWS_DEFAULT_REGION: default-region-aws
+    AWS_ACCOUNT_ID: account-id
+
+phases:
+  install:
+    runtime-versions:
+      docker: 20
+      php: 8.1
+    commands:
+      - |
+        sudo yum update
+        yum install -y php8.1-curl php8.1-common \
+          php8.1-pdo php8.1-pdo_mysql php8.1-mysqli \
+          php8.1-mbstring php8.1-xml php8.1-openssl php8.1-json \
+          php8.1-phar php8.1-dom php8.1-session php8.1-pcntl
+
+        php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+        php composer-setup.php ;
+        php -r "unlink('composer-setup.php');" ;
+        mv composer.phar /usr/local/bin/composer
+
+  pre_build:
+    commands:
+      - which docker
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - composer install --no-progress --no-suggest
+      - vendor/bin/phpunit
+
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG -f docker/php/php.dockerfile .
+      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $ECR_REGISTRY_URI:$IMAGE_TAG
+
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push $ECR_REGISTRY_URI:$IMAGE_TAG
+      - echo Writing image definitions file...
+      - printf '[{"name":"vaccine-reg","imageUri":"%s"}]' $ECR_REGISTRY_URI:$IMAGE_TAG > imagedefinitions.json
+      - cat imagedefinitions.json
+
+artifacts:
+  files:
+    - appspec.yml
+    - docker-compose.prod.yaml
+    - scripts/before_install.sh
+    - scripts/start.sh
+    - imagedefinitions.json

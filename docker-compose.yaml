@@ -1,0 +1,32 @@
+version: "3.8"
+
+networks:
+  vaccination_app:
+    name: vaccination_app
+    driver: bridge
+
+services:
+  vaccination_auth_app:
+    build:
+      context: .
+      dockerfile: ./docker/php/php.dockerfile
+      args:
+        - APP_ENV=${APP_ENV}
+        - APP_KEY=${APP_KEY}
+    container_name: vaccination_auth_app
+    image: vaccination_app/vaccination_auth_app
+    ports:
+      - "8002:19090"
+    environment:
+      - APP_ENV=${APP_ENV}
+      - APP_KEY=${APP_KEY}
+    volumes:
+      - ./:/var/www/html:delegated
+    restart: unless-stopped
+    tty: true
+    networks:
+      - vaccination_app
+
+volumes:
+  vaccination_auth_mysql_data:
+    driver: local

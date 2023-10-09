@@ -1,0 +1,69 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service-deployment 
+  namespace: vaccination-system-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      vms: auth
+  template:
+    metadata:
+      labels:
+        vms: auth
+    spec:
+      containers:
+        - name: auth-service-pod
+          image: ${ECR_REGISTRY_URI}:${IMAGE_TAG}
+          imagePullPolicy: Always
+          env:
+            - name: REGISTRATION_SERVICE
+              value: 'http://registration-service:8000/api'
+            - name: APPOINTMENT_SERVICE
+              value: 'http://appointment-service:8001/api'
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: registration-config
+                  key: DB_PORT
+            - name: DB_CONNECTION
+              valueFrom:
+                configMapKeyRef:
+                  name: registration-config
+                  key: DB_CONNECTION
+            - name: JWT_SECRET
+              valueFrom:
+                configMapKeyRef:
+                  name: registration-config
+                  key: JWT_SECRET
+            - name: DB_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: registration-config
+                  key: DB_DATABASE
+            - name: DB_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: registration-config
+                  key: DB_USERNAME
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: db-host
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: db-password
+          ports:
+            - containerPort: 19090
+          resources:
+            limits:
+              cpu: 300m
+              memory: 1000Mi
+            requests:
+              cpu: 100m
+              memory: 250Mi

@@ -1,0 +1,43 @@
+version: 0.2
+
+env:
+  shell: "/bin/sh"
+  variables:
+    IMAGE_TAG: auth-service
+  parameter-store:
+      ECR_REGISTRY_URI: ecr-registry-uri
+      AWS_DEFAULT_REGION: default-region-aws
+
+phases:
+  install:
+    runtime-versions:
+      php: 8.2
+
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY_URI
+      - echo Installation of Trivy...
+      - yum install rpm
+      - rpm -ivh https://github.com/aquasecurity/trivy/releases/download/v0.18.3/trivy_0.18.3_Linux-64bit.rpm
+      - trivy -v version
+ 
+  
+      
+  build:
+    commands:
+      - docker load -i docker-image-auth.tar.gz
+      - image_id=$(docker images --format "{{.ID}}" | head -n 1)
+      - docker tag $image_id $ECR_REGISTRY_URI:$IMAGE_TAG
+      - trivy image $ECR_REGISTRY_URI:$IMAGE_TAG
+      
+      
+     
+  post_build:
+    commands:
+      - echo Docker Image Scanning...
+       
+       
+
+    
+privilegedMode: true
